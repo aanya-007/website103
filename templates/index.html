@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Event Feedback</title>
+    <!-- Link to our CSS file inside the static/ folder -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+</head>
+<body>
+
+    <div class="card">
+
+        <!-- Page heading -->
+        <h1>📋 Event Feedback</h1>
+        <p class="subtitle">Share your thoughts about a school event</p>
+
+        <!-- ── Success message (shown only after a successful submit) ── -->
+        {% if submitted %}
+            <div class="success-box">
+                ✅ Feedback submitted successfully! Thank you.
+            </div>
+            <a href="/" class="btn-link">Submit another response</a>
+
+        <!-- ── Error message (shown when a field is left empty) ── -->
+        {% elif error %}
+            <div class="error-box">
+                ⚠️ {{ error }}
+            </div>
+            <!-- Fall through to show the form again below -->
+
+        {% endif %}
+
+        <!-- ── Feedback form (hidden only when successfully submitted) ── -->
+        {% if not submitted %}
+        <form action="/submit" method="POST">
+
+            <!-- Name field -->
+            <label for="name">Your Name</label>
+            <input
+                type="text"
+                id="name"
+                name="name"
+                placeholder="e.g. Priya Sharma"
+                required
+            />
+
+            <!-- Event dropdown -->
+            <label for="event">Select Event</label>
+            <select id="event" name="event" required>
+                <option value="" disabled selected>-- Choose an event --</option>
+                <option value="Science Fair">Science Fair</option>
+                <option value="Sports Day">Sports Day</option>
+                <option value="Annual Cultural Fest">Annual Cultural Fest</option>
+                <option value="Math Olympiad">Math Olympiad</option>
+            </select>
+
+            <!-- Feedback textarea -->
+            <label for="message">Your Feedback</label>
+            <textarea
+                id="message"
+                name="message"
+                rows="5"
+                placeholder="Write your thoughts about the event here..."
+                required
+            ></textarea>
+
+            <!-- Submit button -->
+            <button type="submit">Submit Feedback</button>
+
+        </form>
+        {% endif %}
+
+    </div><!-- /.card -->
+
+</body>
+</html>
