@@ -1,73 +1,79 @@
-# app.py - Main Flask application file
+# app.py - Flask + Neon PostgreSQL using pg8000
 
-# Import required libraries
-from flask import Flask, render_template, request, redirect, url_for
-import sqlite3
+from flask import Flask, render_template, request
+import pg8000.native
 import os
 
-# Create the Flask app
 app = Flask(__name__)
 
-# Name of the SQLite database file
-DATABASE = "feedback.db"
+# Your Neon connection string from Vercel environment variables
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+
+def get_conn():
+    """Parse the DATABASE_URL and return a pg8000 connection."""
+    # DATABASE_URL format:
+    # postgresql://user:password@host/dbname?sslmode=require
+    import urllib.parse
+    url = urllib.parse.urlparse(DATABASE_URL)
+
+    return pg8000.native.Connection(
+        host     = url.hostname,
+        port     = url.port or 5432,
+        database = url.path.lstrip("/"),
+        user     = url.username,
+        password = url.password,
+        ssl_context = True   # Neon requires SSL
+    )
 
 
 def init_db():
-    """Create the database and feedback table if they don't exist yet."""
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-
-    # Create the feedback table
-    cursor.execute("""
+    """Create the feedback table if it doesn't already exist."""
+    conn = get_conn()
+    conn.run("""
         CREATE TABLE IF NOT EXISTS feedback (
-            id      INTEGER PRIMARY KEY AUTOINCREMENT,
+            id      SERIAL PRIMARY KEY,
             name    TEXT NOT NULL,
             event   TEXT NOT NULL,
             message TEXT NOT NULL
         )
     """)
-
-    conn.commit()
     conn.close()
 
 
 # ── Route 1: Show the feedback form ──────────────────────────────────────────
 @app.route("/")
 def index():
-    """Display the main feedback form page."""
+    try:
+        init_db()
+    except Exception as e:
+        return f"<h2>DB Error:</h2><pre>{e}</pre>", 500
+
     return render_template("index.html", submitted=False)
 
 
 # ── Route 2: Handle form submission ──────────────────────────────────────────
 @app.route("/submit", methods=["POST"])
 def submit():
-    """Receive form data, save it to SQLite, then show a success message."""
-
-    # Read the values the student typed in the form
     name    = request.form.get("name",    "").strip()
     event   = request.form.get("event",   "").strip()
     message = request.form.get("message", "").strip()
 
-    # Basic check: make sure none of the fields are empty
     if not name or not event or not message:
         return render_template("index.html", submitted=False,
                                error="Please fill in all fields.")
 
-    # Save the feedback into the database
-    conn = sqlite3.connect(DATABASE)
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT INTO feedback (name, event, message) VALUES (?, ?, ?)",
-        (name, event, message)
-    )
-    conn.commit()
-    conn.close()
+    try:
+        conn = get_conn()
+        conn.run(
+            "INSERT INTO feedback (name, event, message) VALUES (:name, :event, :message)",
+            name=name, event=event, message=message
+        )
+        conn.close()
+    except Exception as e:
+        return f"<h2>Insert Error:</h2><pre>{e}</pre>", 500
 
-    # Re-render the same page with a success flag
     return render_template("index.html", submitted=True)
 
 
-# ── Start the app ─────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    init_db()          # Make sure the database/table exist before starting
-    app.run(debug=True)
+# Vercel needs the `app` object at module level
