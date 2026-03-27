@@ -1,34 +1,24 @@
-# app.py - Flask + Neon PostgreSQL using pg8000
-
 from flask import Flask, render_template, request
 import pg8000.native
 import os
+import urllib.parse
 
 app = Flask(__name__)
 
-# Your Neon connection string from Vercel environment variables
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-
 def get_conn():
-    """Parse the DATABASE_URL and return a pg8000 connection."""
-    # DATABASE_URL format:
-    # postgresql://user:password@host/dbname?sslmode=require
-    import urllib.parse
     url = urllib.parse.urlparse(DATABASE_URL)
-
     return pg8000.native.Connection(
-        host     = url.hostname,
-        port     = url.port or 5432,
-        database = url.path.lstrip("/"),
-        user     = url.username,
-        password = url.password,
-        ssl_context = True   # Neon requires SSL
+        host=url.hostname,
+        port=url.port or 5432,
+        database=url.path.lstrip("/"),
+        user=url.username,
+        password=url.password,
+        ssl_context=True
     )
 
-
 def init_db():
-    """Create the feedback table if it doesn't already exist."""
     conn = get_conn()
     conn.run("""
         CREATE TABLE IF NOT EXISTS feedback (
@@ -40,29 +30,22 @@ def init_db():
     """)
     conn.close()
 
-
-# ── Route 1: Show the feedback form ──────────────────────────────────────────
 @app.route("/")
 def index():
     try:
         init_db()
     except Exception as e:
         return f"<h2>DB Error:</h2><pre>{e}</pre>", 500
-
     return render_template("index.html", submitted=False)
 
-
-# ── Route 2: Handle form submission ──────────────────────────────────────────
 @app.route("/submit", methods=["POST"])
 def submit():
     name    = request.form.get("name",    "").strip()
     event   = request.form.get("event",   "").strip()
     message = request.form.get("message", "").strip()
-
     if not name or not event or not message:
         return render_template("index.html", submitted=False,
                                error="Please fill in all fields.")
-
     try:
         conn = get_conn()
         conn.run(
@@ -72,8 +55,12 @@ def submit():
         conn.close()
     except Exception as e:
         return f"<h2>Insert Error:</h2><pre>{e}</pre>", 500
-
     return render_template("index.html", submitted=True)
+```
 
+**4. Save** (Ctrl+S) and **close Notepad**
 
-# Vercel needs the `app` object at module level
+**5. Also open `requirements.txt` in Notepad** and make sure it contains exactly:
+```
+flask
+pg8000
